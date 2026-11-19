@@ -87,8 +87,9 @@ assert.match(path, /^\/e\/[0-9a-f-]+$/);
 // ผู้เยี่ยมชมดูรายละเอียดได้ แต่ไม่เห็นฟอร์มบันทึกผล
 let detail = await (await send(path)).text();
 assert.match(detail, /FE-001/);
-assert.match(detail, /โหมดอ่านอย่างเดียว/);
 assert.doesNotMatch(detail, /\/inspect/);
+assert.doesNotMatch(detail, /เข้าสู่ระบบ/);
+assert.doesNotMatch(detail, /ประวัติการตรวจ/);
 r = await send(path + "/inspect", { method: "POST", body: new URLSearchParams({ inspected_on: "2026-11-18", inspector: "x" }) });
 assert.equal(r.status, 303);
 assert.equal(inspections.length, 0);
@@ -97,10 +98,12 @@ assert.equal(inspections.length, 0);
 r = await send(path + "/inspect", { method: "POST", cookie: adminCookie, body: new URLSearchParams({ inspected_on: "2026-11-18", inspector: "Save", pressure: "pass", pin: "pass", hose: "fail", body: "pass", access: "pass", label: "pass", notes: "เปลี่ยนสายฉีด" }) });
 assert.equal(r.status, 303);
 assert.equal(inspections.length, 1);
-detail = await (await send(path)).text();
+detail = await (await send(path, { cookie: adminCookie })).text();
 assert.match(detail, /พบปัญหา/);
 assert.match(detail, /เปลี่ยนสายฉีด/);
 assert.match(detail, /แก้ไขข้อมูล/);
+const viewerDetail = await (await send(path)).text();
+assert.doesNotMatch(viewerDetail, /เปลี่ยนสายฉีด/);
 
 // หน้าแก้ไข: ผู้เยี่ยมชมเข้าไม่ได้, admin เข้าได้และบันทึกได้
 r = await send(path + "/edit");
