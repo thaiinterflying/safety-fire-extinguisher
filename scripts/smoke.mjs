@@ -48,6 +48,7 @@ const env = {
   ADMIN_USERNAME: "admin",
   ADMIN_PASSWORD_HASH: `pbkdf2$1000$${salt.toString("base64")}$${hash}`,
   SESSION_SECRET: "smoke-session-secret",
+  ADMIN_LOGIN_PATH: "/staff-access",
 };
 
 const origin = "https://example.test";
@@ -62,17 +63,20 @@ const cookieOf = (res) => (res.headers.get("set-cookie") || "").split(";")[0];
 
 // ผู้เยี่ยมชมดูข้อมูลได้ แต่เพิ่ม/แก้ไขไม่ได้
 assert.equal((await send("/")).status, 200);
+const homeHtml = await (await send("/")).text();
+assert.doesNotMatch(homeHtml, /เข้าสู่ระบบ/);
+assert.equal((await send("/login")).status, 404);
 let r = await send("/new");
 assert.equal(r.status, 303);
-assert.equal(r.headers.get("location"), "/login?return_to=%2Fnew");
+assert.equal(r.headers.get("location"), "/staff-access?return_to=%2Fnew");
 r = await send("/new", { method: "POST", body: new URLSearchParams({ code: "FE-999", location: "x", building: "", type: "โฟม", capacity: "6 ปอนด์", expiry: "2030-01-01" }) });
 assert.equal(r.status, 303);
 assert.equal(extinguishers.length, 0);
 
-// เข้าสู่ระบบผิด/ถูก
-r = await send("/login", { method: "POST", body: new URLSearchParams({ username: "admin", password: "wrong", return_to: "/" }) });
+// เข้าสู่ระบบผิด/ถูกที่ path ลับ
+r = await send("/staff-access", { method: "POST", body: new URLSearchParams({ username: "admin", password: "wrong", return_to: "/" }) });
 assert.equal(r.status, 401);
-r = await send("/login", { method: "POST", body: new URLSearchParams({ username: "admin", password, return_to: "/new" }) });
+r = await send("/staff-access", { method: "POST", body: new URLSearchParams({ username: "admin", password, return_to: "/new" }) });
 assert.equal(r.status, 303);
 assert.equal(r.headers.get("location"), "/new");
 const adminCookie = cookieOf(r);

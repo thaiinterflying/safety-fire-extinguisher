@@ -37,6 +37,7 @@ export default async function handler(req, res) {
       DATABASE_URL: process.env.DATABASE_URL,
       ADMIN_USERNAME: process.env.ADMIN_USERNAME,
       ADMIN_DISPLAY_NAME: process.env.ADMIN_DISPLAY_NAME,
+      ADMIN_LOGIN_PATH: process.env.ADMIN_LOGIN_PATH,
       ADMIN_PASSWORD_HASH: process.env.ADMIN_PASSWORD_HASH,
       SESSION_SECRET: process.env.SESSION_SECRET,
     },

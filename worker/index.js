@@ -99,12 +99,14 @@ const safeNext = (value) => {
   const next = cut(value, 300);
   return next.startsWith("/") && !next.startsWith("//") ? next : "/";
 };
-const layout = (title, content, user, admin = false, returnTo = "/", showAuth = true) => {
+const loginPath = (env) => {
+  const value = cut(env.ADMIN_LOGIN_PATH, 120).replace(/\/+$/, "");
+  return value.startsWith("/") && value.length > 1 && !value.startsWith("//") ? value : "";
+};
+const layout = (title, content, user, admin = false) => {
   const auth = admin
     ? '<form method="post" action="/logout" style="display:inline;margin:0"><button class="chip" type="submit" style="border:0">ออกจากระบบ</button></form>'
-    : showAuth
-      ? '<a class="chip" href="/login?return_to=' + encodeURIComponent(returnTo) + '">เข้าสู่ระบบ</a>'
-      : "";
+    : "";
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} | TIF FireSafe</title><style>${stylesheet}</style></head><body><div class="shell"><aside><a class="brand" href="/"><span class="mark">✳</span><span>TIF FireSafe<small>SAFETY MANAGEMENT</small></span></a><div class="navtitle">เมนูหลัก</div><a class="nav" href="/">▦ &nbsp; ภาพรวมและทะเบียนถัง</a><div class="asidefoot">ระบบตรวจสอบถังดับเพลิง<br>Thai Inter Flying</div></aside><main><header><span>ความปลอดภัย / <strong>${esc(title)}</strong></span><span style="display:flex;gap:8px;align-items:center"><span class="chip">${esc(user)}</span>${auth}</span></header><div class="content">${content}</div></main></div></body></html>`;
 };
 const response = (html, code = 200, headers = {}) => new Response(html, { status: code, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; img-src https://api.qrserver.com; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'", ...headers } });
@@ -117,10 +119,10 @@ const home = async (db, user, admin) => {
   const counts = { ok:0, due:0, overdue:0, failed:0, expired:0, new:0 };
   rows.forEach((r) => counts[status(r,now)[0]]++);
   const table = rows.length ? rows.map((r) => `<tr><td><span class="code">${esc(r.code)}</span><small>${esc(r.serial_number || "ไม่มี S/N")}</small></td><td>${esc(r.location)}<small>${esc(r.building)}</small></td><td>${esc(r.type)} · ${esc(r.capacity)}</td><td>${fmt(r.inspected_on)}</td><td>${r.inspected_on ? fmt(addMonth(r.inspected_on)) : "—"}</td><td>${badge(r,now)}</td><td><a class="link" href="/e/${encodeURIComponent(r.id)}">ดูข้อมูล →</a></td></tr>`).join("") : `<tr><td colspan="7" class="empty">ยังไม่มีถังในระบบ${admin ? " กด “เพิ่มถังดับเพลิง” เพื่อเริ่มใช้งาน" : ""}</td></tr>`;
-  const action = admin ? '<a href="/new" class="button">＋ เพิ่มถังดับเพลิง</a>' : '<a href="/login?return_to=%2F" class="button secondary">เข้าสู่ระบบผู้ดูแล</a>';
+  const action = admin ? '<a href="/new" class="button">＋ เพิ่มถังดับเพลิง</a>' : "";
   return layout("ภาพรวม", `<div class="heading"><div><p class="eyebrow">FIRE SAFETY / OVERVIEW</p><h1>ตรวจถังดับเพลิง</h1><p class="muted">ดูสถานะล่าสุดและติดตามกำหนดตรวจรายเดือนในที่เดียว</p></div>${action}</div><div class="stats"><div class="stat"><small>ถังทั้งหมด</small><strong>${rows.length}</strong></div><div class="stat"><small>สถานะปกติ</small><strong class="green">${counts.ok}</strong></div><div class="stat"><small>ใกล้ครบ / เลยกำหนด</small><strong class="orange">${counts.due + counts.overdue}</strong></div><div class="stat"><small>พบปัญหา / หมดอายุ</small><strong class="red">${counts.failed + counts.expired}</strong></div></div><section class="panel"><div class="panelhead"><div><h2>ทะเบียนถังดับเพลิง</h2><p>เลือกถังเพื่อดู QR และประวัติการตรวจ</p></div><span class="muted">${rows.length} รายการ</span></div><div class="tablewrap"><table><thead><tr><th>รหัสถัง</th><th>จุดติดตั้ง</th><th>ชนิด / ขนาด</th><th>ตรวจล่าสุด</th><th>ครบกำหนดครั้งถัดไป</th><th>สถานะ</th><th></th></tr></thead><tbody>${table}</tbody></table></div></section>`, user, admin);
 };
-const loginPage = (returnTo, message = "") => layout("เข้าสู่ระบบผู้ดูแล", `<a class="back" href="/">← กลับหน้าแรก</a><div class="heading"><div><p class="eyebrow">ADMIN / SIGN IN</p><h1>เข้าสู่ระบบผู้ดูแล</h1><p class="muted">ผู้เยี่ยมชมดูข้อมูลได้โดยไม่ต้องเข้าสู่ระบบ แต่การเพิ่ม แก้ไข และบันทึกผลตรวจต้องเป็นผู้ดูแล</p></div></div>${message ? error(message) : ""}<section class="panel"><div class="panelhead"><h2>บัญชีผู้ดูแล</h2></div><div class="panelbody"><form method="post" action="/login"><div class="grid"><div class="field"><label for="username">ชื่อผู้ใช้ *</label><input id="username" name="username" autocomplete="username" maxlength="60" required></div><div class="field"><label for="password">รหัสผ่าน *</label><input id="password" name="password" type="password" autocomplete="current-password" required></div></div><input type="hidden" name="return_to" value="${esc(returnTo)}"><div class="actions"><a class="button secondary" href="/">ยกเลิก</a><button class="button">เข้าสู่ระบบ</button></div></form></div></section>`, "ผู้เยี่ยมชม");
+const loginPage = (loginHref, returnTo, message = "") => layout("เข้าสู่ระบบผู้ดูแล", `<a class="back" href="/">← กลับหน้าแรก</a><div class="heading"><div><p class="eyebrow">ADMIN / SIGN IN</p><h1>เข้าสู่ระบบผู้ดูแล</h1><p class="muted">ผู้เยี่ยมชมดูข้อมูลได้โดยไม่ต้องเข้าสู่ระบบ แต่การเพิ่ม แก้ไข และบันทึกผลตรวจต้องเป็นผู้ดูแล</p></div></div>${message ? error(message) : ""}<section class="panel"><div class="panelhead"><h2>บัญชีผู้ดูแล</h2></div><div class="panelbody"><form method="post" action="${esc(loginHref)}"><div class="grid"><div class="field"><label for="username">ชื่อผู้ใช้ *</label><input id="username" name="username" autocomplete="username" maxlength="60" required></div><div class="field"><label for="password">รหัสผ่าน *</label><input id="password" name="password" type="password" autocomplete="current-password" required></div></div><input type="hidden" name="return_to" value="${esc(returnTo)}"><div class="actions"><a class="button secondary" href="/">ยกเลิก</a><button class="button">เข้าสู่ระบบ</button></div></form></div></section>`, "ผู้เยี่ยมชม");
 const newPage = (user, message = "") => layout("เพิ่มถังดับเพลิง", `<a class="back" href="/">← กลับไปหน้าแรก</a><div class="heading"><div><p class="eyebrow">REGISTER / NEW EXTINGUISHER</p><h1>เพิ่มถังดับเพลิง</h1><p class="muted">สร้างรหัสประจำถังเพื่อใช้ทำ QR ติดที่ตัวถัง</p></div></div>${message ? error(message) : ""}<section class="panel"><div class="panelhead"><h2>ข้อมูลประจำถัง</h2></div><div class="panelbody"><form action="/new" method="post"><div class="grid">${field("code","รหัสถัง *","text",true,'placeholder="เช่น FE-001" maxlength="40"')}${field("location","จุดติดตั้ง *","text",true,'placeholder="เช่น หน้าห้องประชุม" maxlength="160"')}${field("building","อาคาร / ชั้น","text",false,'placeholder="เช่น อาคารสำนักงาน ชั้น 2" maxlength="120"')}<div class="field"><label for="type">ชนิดถัง *</label><select id="type" name="type" required><option value="ผงเคมีแห้ง">ผงเคมีแห้ง</option><option value="CO₂">CO₂</option><option value="โฟม">โฟม</option><option value="น้ำ">น้ำ</option><option value="อื่น ๆ">อื่น ๆ</option></select></div>${field("capacity","ขนาด *","text",true,'placeholder="เช่น 10 ปอนด์" maxlength="60"')}${field("serial","หมายเลข S/N","text",false,'maxlength="80"')}${field("expiry","วันหมดอายุ / กำหนดบำรุงรักษา *","date")}${field("installed","วันที่ติดตั้ง","date",false)}</div><div class="actions"><a class="button secondary" href="/">ยกเลิก</a><button class="button">บันทึกและสร้าง QR</button></div></form></div></section>`, user, true);
 const editPage = (e, user, message = "") => {
   const typeOptions = ["ผงเคมีแห้ง","CO₂","โฟม","น้ำ","อื่น ๆ"].map((t) => `<option value="${esc(t)}" ${e.type === t ? "selected" : ""}>${esc(t)}</option>`).join("");
@@ -145,7 +147,7 @@ const detail = async (db, id, user, admin, origin, msg = "") => {
   const content = admin
     ? `<a class="back" href="/">← กลับไปทะเบียนถัง</a>${heading}${msg ? error(msg) : ""}<div class="twocol"><div>${infoPanel}${inspectPanel}${historyPanel}</div><div>${qrPanel}</div></div>`
     : `${heading}${msg ? error(msg) : ""}${infoPanel}`;
-  return response(layout("ถัง " + e.code, content, user, admin, "/e/" + encodeURIComponent(id), admin));
+  return response(layout("ถัง " + e.code, content, user, admin));
 };
 export default {
   async fetch(request, env) {
@@ -153,18 +155,19 @@ export default {
     const db = env.DATABASE_URL ? neonDatabase(env.DATABASE_URL) : env.DB;
     const admin = await isAdmin(request, env);
     const user = admin ? (env.ADMIN_DISPLAY_NAME || "ผู้ดูแลระบบ") : "ผู้เยี่ยมชม";
+    const login = loginPath(env);
     if (!db) return response(layout("ระบบไม่พร้อม", error("ฐานข้อมูลยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ"), user, admin),503);
     try {
       if (request.method === "POST") {
         if (request.headers.get("origin") !== url.origin) return response("Invalid origin",403);
-        if (path === "/login") {
+        if (login && path === login) {
           const data = await request.formData();
           const next = safeNext(data.get("return_to"));
-          if (!env.ADMIN_PASSWORD_HASH) return response(loginPage(next, "ระบบยังไม่ได้ตั้งค่ารหัสผ่านผู้ดูแล (ADMIN_PASSWORD_HASH)"),503);
+          if (!env.ADMIN_PASSWORD_HASH) return response(loginPage(login, next, "ระบบยังไม่ได้ตั้งค่ารหัสผ่านผู้ดูแล (ADMIN_PASSWORD_HASH)"),503);
           const username = cut(data.get("username"),60), password = String(data.get("password") ?? "");
           if (!textEquals(username, env.ADMIN_USERNAME || "admin") || !(await passwordMatches(env, password))) {
             await new Promise((resolve) => setTimeout(resolve, 400));
-            return response(loginPage(next, "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"),401);
+            return response(loginPage(login, next, "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"),401);
           }
           return go(next, { "set-cookie": cookieHeader(request, await sessionValue(env)) });
         }
@@ -172,7 +175,7 @@ export default {
         const inspectMatch = path.match(/^\/e\/([0-9a-f-]+)\/inspect$/);
         const editMatch = path.match(/^\/e\/([0-9a-f-]+)\/edit$/);
         if (!(path === "/new" || inspectMatch || editMatch)) return response("Not found",404);
-        if (!admin) return go("/login?return_to=" + encodeURIComponent(path));
+        if (!admin) return login ? go(login + "?return_to=" + encodeURIComponent(path)) : response("Not found", 404);
         const data = await request.formData();
         if (path === "/new") {
           const code = cut(data.get("code"),40).toUpperCase(), location = cut(data.get("location"),160), building = cut(data.get("building"),120), type = cut(data.get("type"),60), capacity = cut(data.get("capacity"),60), serial = cut(data.get("serial"),80), expiry = cut(data.get("expiry"),10), installed = cut(data.get("installed"),10);
@@ -206,15 +209,15 @@ export default {
         return go("/e/" + id);
       }
       if (request.method !== "GET") return response("Method not allowed",405);
-      if (path === "/login") {
+      if (login && path === login) {
         const next = safeNext(url.searchParams.get("return_to"));
-        return admin ? go("/") : response(loginPage(next));
+        return admin ? go("/") : response(loginPage(login, next), 200, { "x-robots-tag": "noindex" });
       }
       if (path === "/") return response(await home(db,user,admin));
-      if (path === "/new") return admin ? response(newPage(user)) : go("/login?return_to=%2Fnew");
+      if (path === "/new") return admin ? response(newPage(user)) : login ? go(login + "?return_to=%2Fnew") : response("Not found", 404);
       const editMatch = path.match(/^\/e\/([0-9a-f-]+)\/edit$/);
       if (editMatch) {
-        if (!admin) return go("/login?return_to=" + encodeURIComponent(path));
+        if (!admin) return login ? go(login + "?return_to=" + encodeURIComponent(path)) : response("Not found", 404);
         const e = await db.prepare("SELECT * FROM extinguishers WHERE id=?").bind(editMatch[1]).first();
         if (!e) return response(layout("ไม่พบถัง", `<h1>ไม่พบถังดับเพลิง</h1><p class="muted">ตรวจสอบรหัส QR หรือกลับไปหน้าทะเบียน</p><a class="button" href="/">กลับหน้าแรก</a>`, user, admin),404);
         return response(editPage(e,user));

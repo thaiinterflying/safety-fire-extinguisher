@@ -42,6 +42,7 @@ export async function createApp({ databaseUrl = process.env.DATABASE_URL } = {})
     ADMIN_USERNAME: process.env.ADMIN_USERNAME,
     ADMIN_PASSWORD_HASH: process.env.ADMIN_PASSWORD_HASH,
     ADMIN_DISPLAY_NAME: process.env.ADMIN_DISPLAY_NAME,
+    ADMIN_LOGIN_PATH: process.env.ADMIN_LOGIN_PATH,
     SESSION_SECRET: process.env.SESSION_SECRET,
   };
 

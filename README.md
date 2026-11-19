@@ -19,7 +19,7 @@
 npm run dev
 ```
 
-เปิด http://localhost:8787 — ถ้าไม่มี `DATABASE_URL` ระบบจะใช้ SQLite ในหน่วยความจำ (ข้อมูลหายเมื่อปิด) และถ้าตั้ง `ADMIN_PASSWORD_HASH` ใน `.env` จะเข้าสู่ระบบผู้ดูแลได้ที่ `/login` กำหนดพอร์ตอื่นได้ผ่านตัวแปรสภาพแวดล้อม `PORT`
+เปิด http://localhost:8787 — ถ้าไม่มี `DATABASE_URL` ระบบจะใช้ SQLite ในหน่วยความจำ (ข้อมูลหายเมื่อปิด) และถ้าตั้ง `ADMIN_PASSWORD_HASH` พร้อม `ADMIN_LOGIN_PATH` ใน `.env` จะเข้าสู่ระบบผู้ดูแลได้ที่ path นั้น (ถ้าไม่ตั้ง `ADMIN_LOGIN_PATH` หน้า login จะถูกปิด) กำหนดพอร์ตอื่นได้ผ่านตัวแปรสภาพแวดล้อม `PORT`
 
 - `npm run smoke` ทดสอบสิทธิ์ผู้เยี่ยมชม/ผู้ดูแล การเข้าสู่ระบบ การลงทะเบียน การบันทึกผล และการแก้ไข
 - `npm run build` สร้างแพ็กเกจใน `dist/` และ `npm run validate` ตรวจว่า Worker เป็น ESM ที่ถูกต้อง
@@ -38,8 +38,8 @@ npm run dev
 ## สิทธิ์ผู้ใช้และบัญชีผู้ดูแล
 
 - **ผู้เยี่ยมชม** ไม่ต้องเข้าสู่ระบบ หน้า QR ของแต่ละถังแสดงเฉพาะข้อมูลและกำหนดตรวจ (ไม่มีปุ่ม login ประวัติ หรือฟอร์ม) ส่วนหน้าภาพรวมดูสถานะได้ แต่ POST ทุกเส้นทางจะถูกพาไปหน้า login
-- **ผู้ดูแล** เข้าสู่ระบบที่ `/login` เพื่อเพิ่มถัง แก้ไขข้อมูลถัง และบันทึกผลตรวจ (session cookie อายุ 12 ชั่วโมง)
-- ตั้งค่าใน `.env` หรือ environment ของ production: `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` (สร้างด้วย `node scripts/hash-password.mjs "รหัสผ่าน"`) และ `SESSION_SECRET`
+- **ผู้ดูแล** เข้าสู่ระบบที่ path ลับ `ADMIN_LOGIN_PATH` (เช่น `/staff-xxxx` — ไม่มีลิงก์หรือปุ่มใด ๆ ในหน้าสาธารณะ) ถ้าไม่ตั้งค่านี้ หน้า login จะถูกปิด (404) เพื่อเพิ่มถัง แก้ไขข้อมูลถัง และบันทึกผลตรวจ (session cookie อายุ 12 ชั่วโมง)
+- ตั้งค่าใน `.env` หรือ environment ของ production: `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` (สร้างด้วย `node scripts/hash-password.mjs "รหัสผ่าน"`), `SESSION_SECRET` และ `ADMIN_LOGIN_PATH`
 
 ## การเผยแพร่
 
@@ -54,8 +54,8 @@ QR แสดงผ่านบริการ `api.qrserver.com` ซึ่งจ
 โปรเจกต์มี adapter `api/index.js` และ `vercel.json` สำหรับรัน Worker เดียวกันบน Vercel
 
 1. Import repo เข้า Vercel (Framework Preset: Other) — build command และ output directory ถูกกำหนดใน `vercel.json` แล้ว
-2. ตั้ง Environment Variables ใน Project Settings: `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`
-3. Deploy แล้วทดสอบที่ `/login` — ทุกเส้นทางจะถูก rewrite ไปที่ `api/` ซึ่งเรียก Worker ตัวเดียวกับ Cloudflare
+2. ตั้ง Environment Variables ใน Project Settings: `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `ADMIN_LOGIN_PATH`
+3. Deploy แล้วเข้าสู่ระบบที่ path ที่ตั้งใน `ADMIN_LOGIN_PATH` — ทุกเส้นทางจะถูก rewrite ไปที่ `api/` ซึ่งเรียก Worker ตัวเดียวกับ Cloudflare
 
 แนะนำเลือก region สิงคโปร์ (`sin1`) ให้ใกล้ Neon `ap-southeast-1` หากแผนรองรับ
 
