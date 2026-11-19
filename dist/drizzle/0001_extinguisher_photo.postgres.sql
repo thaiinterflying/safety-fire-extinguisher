@@ -1,0 +1,1 @@
+ALTER TABLE extinguishers ADD COLUMN IF NOT EXISTS photo text NOT NULL DEFAULT '';

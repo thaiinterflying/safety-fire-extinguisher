@@ -1,6 +1,6 @@
 // Creates the TIF FireSafe tables in a Neon Postgres database.
 // Usage: ตั้ง DATABASE_URL ใน .env แล้วรัน `npm run migrate:neon`
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { neonDatabase } from "../worker/index.js";
 
 try {
@@ -15,18 +15,19 @@ if (!connectionString) {
   process.exit(1);
 }
 
-const schema = await readFile(
-  new URL("../drizzle/0000_fire_inspection.postgres.sql", import.meta.url),
-  "utf8",
-);
-const statements = schema
-  .split(";")
-  .map((statement) => statement.trim())
-  .filter(Boolean);
-
 const db = neonDatabase(connectionString);
-for (const statement of statements) {
-  await db.prepare(statement).run();
+const files = (await readdir(new URL("../drizzle", import.meta.url)))
+  .filter((name) => name.endsWith(".postgres.sql"))
+  .sort();
+for (const file of files) {
+  const schema = await readFile(new URL("../drizzle/" + file, import.meta.url), "utf8");
+  const statements = schema
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+  for (const statement of statements) {
+    await db.prepare(statement).run();
+  }
 }
 
 const tables = await db

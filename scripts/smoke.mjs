@@ -23,12 +23,19 @@ const db = {
       },
       async run() {
         if (sql.includes("INSERT INTO extinguishers")) {
-          const keys = ["id", "code", "location", "building", "type", "capacity", "serial_number", "expiry_date", "installed_date", "created_at", "created_by"];
+          const keys = ["id", "code", "location", "building", "type", "capacity", "serial_number", "expiry_date", "installed_date", "photo", "created_at", "created_by"];
           extinguishers.push(Object.fromEntries(keys.map((k, i) => [k, args[i]])));
         } else if (sql.includes("UPDATE extinguishers SET")) {
-          const keys = ["code", "location", "building", "type", "capacity", "serial_number", "expiry_date", "installed_date"];
-          const target = extinguishers.find((e) => e.id === args[8]);
+          const keys = ["code", "location", "building", "type", "capacity", "serial_number", "expiry_date", "installed_date", "photo"];
+          const target = extinguishers.find((e) => e.id === args[9]);
           if (target) keys.forEach((k, i) => { target[k] = args[i]; });
+        } else if (sql.startsWith("DELETE FROM inspections")) {
+          for (let i = inspections.length - 1; i >= 0; i--) {
+            if (inspections[i].extinguisher_id === args[0]) inspections.splice(i, 1);
+          }
+        } else if (sql.startsWith("DELETE FROM extinguishers")) {
+          const index = extinguishers.findIndex((e) => e.id === args[0]);
+          if (index >= 0) extinguishers.splice(index, 1);
         } else {
           const keys = ["id", "extinguisher_id", "inspected_on", "inspector", "inspector_user_id", "pressure", "pin", "hose", "body", "access", "label", "notes", "result", "created_at"];
           inspections.push(Object.fromEntries(keys.map((k, i) => [k, args[i]])));
@@ -118,6 +125,25 @@ assert.match(await r.text(), /FE-001/);
 r = await send(path + "/edit", { method: "POST", cookie: adminCookie, body: new URLSearchParams({ code: "FE-001", location: "หน้าลิฟต์", building: "อาคาร A", type: "CO₂", capacity: "10 ปอนด์", expiry: "2030-11-18" }) });
 assert.equal(r.status, 303);
 assert.match(await (await send(path)).text(), /หน้าลิฟต์/);
+
+// รูปถัง: admin อัปโหลดและลบได้
+const photo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+r = await send(path + "/edit", { method: "POST", cookie: adminCookie, body: new URLSearchParams({ code: "FE-001", location: "หน้าลิฟต์", building: "อาคาร A", type: "CO₂", capacity: "10 ปอนด์", expiry: "2030-11-18", photo }) });
+assert.equal(r.status, 303);
+assert.equal(extinguishers[0].photo, photo);
+assert.match(await (await send(path)).text(), /data:image\/png;base64/);
+r = await send(path + "/edit", { method: "POST", cookie: adminCookie, body: new URLSearchParams({ code: "FE-001", location: "หน้าลิฟต์", building: "อาคาร A", type: "CO₂", capacity: "10 ปอนด์", expiry: "2030-11-18", remove_photo: "on" }) });
+assert.equal(r.status, 303);
+assert.equal(extinguishers[0].photo, "");
+
+// ลบถัง: ต้องเป็น admin
+r = await send(path + "/delete", { method: "POST" });
+assert.equal(r.status, 303);
+assert.equal(extinguishers.length, 1);
+r = await send(path + "/delete", { method: "POST", cookie: adminCookie });
+assert.equal(r.status, 303);
+assert.equal(extinguishers.length, 0);
+assert.equal(inspections.length, 0);
 
 // ออกจากระบบแล้วแก้ไขไม่ได้
 r = await send("/logout", { method: "POST", cookie: adminCookie });

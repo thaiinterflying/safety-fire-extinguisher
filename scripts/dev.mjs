@@ -2,7 +2,7 @@
 // SQLite database, so the app can be opened in a browser without Cloudflare.
 // Requires Node.js 22.5+ for node:sqlite. Not part of the deployable artifact.
 import { createServer as createHttpServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -27,10 +27,15 @@ const createD1 = (db) => ({
 });
 
 const applyMigration = async (db) => {
-  const migration = await readFile(resolve(root, "drizzle/0000_fire_inspection.sql"), "utf8");
-  for (const statement of migration.split("--> statement-breakpoint")) {
-    const sql = statement.trim().replace(/;+$/, "");
-    if (sql) db.exec(sql);
+  const files = (await readdir(resolve(root, "drizzle")))
+    .filter((name) => name.endsWith(".sql") && !name.endsWith(".postgres.sql"))
+    .sort();
+  for (const file of files) {
+    const migration = await readFile(resolve(root, "drizzle", file), "utf8");
+    for (const statement of migration.split("--> statement-breakpoint")) {
+      const sql = statement.trim().replace(/;+$/, "");
+      if (sql) db.exec(sql);
+    }
   }
 };
 
