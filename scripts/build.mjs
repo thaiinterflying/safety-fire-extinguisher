@@ -1,0 +1,10 @@
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+await rm('dist', { recursive: true, force: true });
+await mkdir('dist/server', { recursive: true });
+await mkdir('dist/.openai', { recursive: true });
+await cp('worker/index.js', 'dist/server/index.js');
+await cp('.openai/hosting.json', 'dist/.openai/hosting.json');
+await cp('drizzle', 'dist/drizzle', { recursive: true });
+const manifest = JSON.parse(await readFile('.openai/hosting.json', 'utf8'));
+if (!manifest.project_id || manifest.d1 !== 'DB') throw new Error('Missing Site identity or D1 binding');
+console.log('Built Site with database migration');
