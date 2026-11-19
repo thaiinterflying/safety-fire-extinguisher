@@ -10,7 +10,6 @@ import worker from "../worker/index.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 8787);
-const DEV_USER = "ผู้ดูแลระบบ (local)";
 
 // Minimal D1 shim over node:sqlite: only the prepare/bind/first/all/run subset
 // that worker/index.js actually uses.
@@ -35,10 +34,16 @@ const applyMigration = async (db) => {
   }
 };
 
-export async function createApp({ authenticated = true, databaseUrl = process.env.DATABASE_URL } = {}) {
+export async function createApp({ databaseUrl = process.env.DATABASE_URL } = {}) {
   const db = databaseUrl ? null : new DatabaseSync(":memory:");
   if (db) await applyMigration(db);
-  const env = databaseUrl ? { DATABASE_URL: databaseUrl } : { DB: createD1(db) };
+  const env = {
+    ...(databaseUrl ? { DATABASE_URL: databaseUrl } : { DB: createD1(db) }),
+    ADMIN_USERNAME: process.env.ADMIN_USERNAME,
+    ADMIN_PASSWORD_HASH: process.env.ADMIN_PASSWORD_HASH,
+    ADMIN_DISPLAY_NAME: process.env.ADMIN_DISPLAY_NAME,
+    SESSION_SECRET: process.env.SESSION_SECRET,
+  };
 
   return {
     close() { db?.close(); },
@@ -47,12 +52,6 @@ export async function createApp({ authenticated = true, databaseUrl = process.en
       const headers = new Headers(request.headers);
       // Browsers send Origin on same-origin form posts; the worker rejects mismatches.
       if (request.method === "POST") headers.set("origin", url.origin);
-      if (authenticated && !headers.has("oai-authenticated-user-id")) {
-        headers.set("oai-authenticated-user-id", "local-dev");
-        headers.set("oai-authenticated-user-email", "dev@tif.local");
-        headers.set("oai-authenticated-user-full-name", encodeURIComponent(DEV_USER));
-        headers.set("oai-authenticated-user-full-name-encoding", "percent-encoded-utf-8");
-      }
       return worker.fetch(
         new Request(url, { method: request.method, headers, body: request.body, duplex: "half" }),
         env,
@@ -102,7 +101,8 @@ if (isMain) {
       ? `Neon Postgres (${process.env.DATABASE_URL.replace(/:\/\/([^:/@]+):[^@]+@/, "://$1:***@")})`
       : "SQLite ในหน่วยความจำ (ข้อมูลหายเมื่อปิด)";
     console.log(`TIF FireSafe local preview: http://localhost:${port}`);
-    console.log(`ผู้ใช้จำลอง: ${DEV_USER} · ฐานข้อมูล: ${store}`);
+    console.log(`ฐานข้อมูล: ${store}`);
+    console.log(process.env.ADMIN_PASSWORD_HASH ? "โหมดผู้ดูแล: เปิดใช้งาน (ADMIN_PASSWORD_HASH พร้อม)" : "โหมดผู้ดูแล: ปิด (ยังไม่มี ADMIN_PASSWORD_HASH ใน .env)");
     console.log("กด Ctrl+C เพื่อปิด");
   });
 }

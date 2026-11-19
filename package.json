@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "smoke": "node scripts/smoke.mjs",
+    "hash-password": "node scripts/hash-password.mjs",
     "migrate:neon": "node scripts/migrate-neon.mjs",
     "build": "node scripts/build.mjs",
     "validate": "node scripts/validate-artifact.mjs"
